@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+#=============================================================================#
+# https://github.com/MartyCombs/bin/blob/master/pic-fixdates.py
+#=============================================================================#
 
 import argparse, sys, os, subprocess, shlex, re
 

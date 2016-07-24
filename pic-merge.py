@@ -1,4 +1,7 @@
 #!/usr/bin/env python2.7
+#=============================================================================#
+# https://github.com/MartyCombs/bin/blob/master/pic-merge.py
+#=============================================================================#
 
 import argparse, sys, os, fnmatch, re, tempfile
 

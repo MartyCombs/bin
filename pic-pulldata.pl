@@ -1,4 +1,7 @@
 #!/usr/bin/env perl
+#=============================================================================#
+# https://github.com/MartyCombs/bin/blob/master/pic-pulldata.pl
+#=============================================================================#
 
 my @exif_data=`/usr/local/bin/exiftool $ARGV[0]`;
 my @optionlist=('GPSLatitudeRef', 'GPSLongitudeRef', 'GPSAltitudeRef',

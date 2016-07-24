@@ -1,4 +1,7 @@
 #!/usr/bin/env python2.7
+#=============================================================================#
+# https://github.com/MartyCombs/bin/blob/master/pic-number.py
+#=============================================================================#
 
 '''
 Given a regular expression, adjust file names to match the regular expression.
@@ -87,4 +90,4 @@ def main():
     if not s.noop: s.update_files()
 
 if __name__ == "__main__":
-    main() 
+    main()
