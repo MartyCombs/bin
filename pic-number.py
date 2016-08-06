@@ -68,7 +68,6 @@ class NumberPics:
     def update_files(self):
         for f in sorted(self.files.keys()):
             os.rename(f, self.files[f])
-            os.chmod(self.files[f], 0644)
 
 
 
