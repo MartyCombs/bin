@@ -20,32 +20,41 @@ class NumberPics:
         self.total_files = 0
         self.files = {}
 
+
+
     def build_list(self, filelist=None):
         for f in sorted(filelist):
             # Skip any files which begin with a dot as they may be thumbnails.
             if f.startswith('.'):
                 print 'WARN: Will not rename dot-files.  Skipping "{}"'.format(f)
                 continue
-            if fnmatch.fnmatch(f, '*' + self.nameformat + '*'):
+            if fnmatch.fnmatch(f, self.nameformat + '*'):
                 self.filenames_already_matching.append(f)
             else:
                 self.filenames_to_change.append(f)
         if self.debug:
             print 'DEBUG: Found {} files matching name "{}" and {} files to update.'.format(len(self.filenames_already_matching), self.nameformat, len(self.filenames_to_change))
 
+
+
     def replace_files(self, files=None, replace_with=None, index=None, digits=0):
         if index < 1: return index
         for f in sorted(files, reverse=True):
             if replace_with:
-                newname = re.sub(r'^(\S+)\.([A-Za-z0-9]{3,4})\Z', replace_with + '-' + str(index).zfill(digits) + r'.\2', f)
+                replace = re.match(r'^(\S+)\.([A-Za-z0-9]{3,4})\Z', f)
+                newname = replace_with + '-' + str(index).zfill(digits) + '.' + replace.group(2).lower()
             else:
                 if re.match(self.filename_format, f):
-                    newname = re.sub(r'^(\S+)\-\d+\.([A-Za-z0-9]{3,4})\Z', r'\1' + '-' + str(index).zfill(digits) + r'.\2', f)
+                    replace_digits = re.match(r'^(\S+)\-\d+\.([A-Za-z0-9]{3,4})\Z', f)
+                    newname = replace_digits.group(1) + '-' + str(index).zfill(digits) + '.' + replace_digits.group(2).lower()
                 else:
-                    newname = re.sub(r'^(\S+)\.([A-Za-z0-9]{3,4})\Z', r'\1' + '-' + str(index).zfill(digits) + r'.\2', f)
+                    keep = re.match(r'^(\S+)\.([A-Za-z0-9]{3,4})\Z', f)
+                    newname = keep.group(1) + '-' + str(index).zfill(digits) + '.' + keep.group(2).lower()
             self.files[f] = newname
             index -= 1
         return index
+
+
 
     def print_changes(self):
         for f in sorted(self.files.keys()):
@@ -54,9 +63,14 @@ class NumberPics:
             else:
                 print '{} -> {}'.format(f, self.files[f])
 
+
+
     def update_files(self):
         for f in sorted(self.files.keys()):
             os.rename(f, self.files[f])
+            os.chmod(self.files[f], 0644)
+
+
 
 def main():
     parser = argparse.ArgumentParser(description='Given a source and destination regular expression, merge the two files into one.  Assume the file has a format of REGEX-INT.EXT.')
