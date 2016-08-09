@@ -23,7 +23,7 @@ for f in args.files:
     basename = os.path.basename(f)
     path[basename] = os.path.dirname(f)
     if not os.path.exists(f):
-        sys.stderr.write('File not found "{}"'.format(f))
+        sys.stderr.write('File not found "{}"\n'.format(f))
         files_skipped.append(basename)
     else:
         files_to_fix.append(basename)
@@ -53,7 +53,7 @@ for f in files_to_fix:
         oldname = path[f] + '/' + f
         newname = path[f] + '/' + new_names[f]
     if f != new_names[f]:
-        sys.stderr.write('"{}" -> "{}"'.format(oldname, newname))
+        sys.stderr.write('"{}" -> "{}"\n'.format(oldname, newname))
         if not args.noop: os.rename(oldname, newname)
     if not args.noop and os.path.isfile(newname):
         os.chmod(newname, 0644)
