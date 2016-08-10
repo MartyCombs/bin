@@ -143,6 +143,7 @@ def main():
     for f in kw.files:
         if kw.noaction is True:
             print '{fname:{chars}s}    {kwords:<}'.format(fname=f, chars=kw.maxlength, kwords=kw.keywords[f])
+        else:
             if kw.keywords[f] != kw.keywords_before[f]:
                 kw.write_keywords(filename=f)
 
