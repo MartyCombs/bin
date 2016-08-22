@@ -77,7 +77,7 @@ Parameters
         self.keywords[filename] = keywords.split()
     def write_keywords(self, filename):
         kwords = ', '.join(self.keywords[filename])
-        cmd='exiftool -overwrite_original_in_place -Keywords="{}" {}'.format(kwords,filename)
+        cmd='exiftool -P -overwrite_original_in_place -Keywords="{}" {}'.format(kwords,filename)
         args = shlex.split(cmd)
         subprocess.check_output(args)
     def confirm_prompt(self, prompt=None, resp=False):
