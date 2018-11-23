@@ -27,6 +27,12 @@ class ExifData(object):
         self.exifdata_new = {}
         self.exifdates = ['Modify Date', 'Date/Time Original', 'Create Date']
         self.cmds = []
+    def sanity_tests(self):
+        try:
+            p = subprocess.Popen(['exiftool', '-h'], stdout=subprocess.PIPE)
+        except OSError:
+            sys.write.stderr('Could not find exiftool in your path.\n')
+            sys.exit(1)
     def read_exif(self, files=None):
         spaces = re.compile(r'\s')
         datapairs = re.compile(r'^(.*)\s+: (.*)$')

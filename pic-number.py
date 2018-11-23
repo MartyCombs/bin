@@ -6,137 +6,242 @@
 '''
 Given a regular expression, adjust file names to match the regular expression.
 '''
-import argparse, sys, os, glob, re, tempfile
+import argparse, sys, os, glob, re, tempfile, logging
 
 class NumberPics:
-    def __init__(self, debug=False, noop=False, prepend=False, nameformat=None):
+    def __init__(self, debug=False, loglevel=None, noop=False, prepend=False, nameformat=None, dstdir=None, srcfiles=None):
         '''Want files of format:
     BASE-DIGITS.EXTENSION
-where BASE- DIGITS are unique regardless of EXTENSION (i.e. name-1.jpg == name-1.png).
-
-There are three lists:
-    * Files to skip - such as files (like thumbnails) beginning with a dot '.'.
-    * Files already matching the name we want.
-    * Files which need to be changed to the format we want.
+where BASE-DIGITS are unique regardless of EXTENSION (i.e. 'name-1.jpg'
+cannot equal 'name-1.png').
         '''
         self.debug = debug
+        self.loglevel = loglevel.upper()
         self.noop = noop
         self.prepend = prepend
-        self.nameformat = nameformat
-        self.filenames_skipped = []
-        self.filenames_already_matching = []
-        self.filenames_to_change = []
+        self.nameformat = nameformat          # BASE
+        self.dstdir = os.path.abspath(dstdir) # Destination directory.
+        self.srcfiles = []                    # List of source files.
+        for f in srcfiles:
+            self.srcfiles.append(os.path.abspath(f))
         self.filename_format = re.compile(r'^(\S+)\-(\d+)\.([A-Za-z0-9]{1,4})\Z')
         self.anyfile_format = re.compile(r'^(\S+)\.([A-Za-z0-9]{1,4})\Z')
-        self.total_files = 0
-        self.num_digits = 0
+        self.ordered_files = []
         self.files = {}
-    def build_list(self, format_desired=None, filelist=None):
-        '''Build the list of files which are candidates for renaming.
+        self.totalfiles = int(0)
+        self.digits = int(0)
+        self.list_order = [ 'matching_dst_files', 'matching_src_files', 'other_dst_files', 'other_src_files' ]
+        self.match_order = [ 'matching', 'other' ]
+        self.ds_order = [ 'dst', 'src' ]
+        self.file_lists = { 'matching' : { 'dst' : [],
+                                           'src' : [] },
+                            'other'    : { 'dst' : [],
+                                           'src' : [] } }
+        self.init_logging(loglevel=self.loglevel)
+
+
+
+    def init_logging(self, loglevel=None):
+        '''Assumes self.loglevel = 'critical|error|warning|info|debug'
         '''
-        already_matching = []
-        to_skip = []
-        to_change = []
-        for f in sorted(filelist):
-            file_path = os.path.dirname(f)
-            file_base = os.path.basename(f)
-            (root, digits, extension) = self.get_file_parts(filename=file_base)
-            # Files beginning with a period are skipped.  They may be thumbnails.
-            if file_base.startswith('.'):
-                to_skip.append(f)
-            elif root == self.nameformat:
-                already_matching.append(f)
+        levels = [ 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG' ]
+        if loglevel.upper() not in levels:
+            loglevel='WARNING'
+        log = logging.getLogger(__name__)
+        formatter_basic = logging.Formatter(fmt='[%(asctime)s] %(levelname)8s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S %z')
+        formatter_debug = logging.Formatter(fmt='DEBUG: [%(asctime)s] %(filename)s(%(process)d) %(levelname)8s [%(name)s.%(funcName)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S %z')
+        sh = logging.StreamHandler(stream=sys.stderr)
+        if self.debug:
+            loglevel='DEBUG'
+            sh.setFormatter(formatter_debug)
+        else:
+            loglevel = loglevel.upper()
+            sh.setFormatter(formatter_basic)
+        log.setLevel(getattr(logging, loglevel))
+        log.addHandler(sh)
+        self.log = log
+
+
+
+    def remove_dupes(self, filelist=None):
+        endlist = []
+        filecheck = {}
+        for f in filelist:
+            fullname = os.path.abspath(f)
+            if fullname in filecheck:
+                continue
             else:
-                to_change.append(f)
-        self.filenames_already_matching = already_matching
-        self.filenames_to_change = to_change
-        self.filenames_skipped = to_skip
-        self.total_files = len(already_matching) + len(to_change)
-        self.num_digits = len(str(self.total_files))
-    def get_file_parts(self, filename=None):
+                filecheck[fullname] = 1
+                endlist.append(fullname)
+        return endlist
+
+
+
+    def get_file_parts(self, filename):
         '''Break a file into the three parts we want:
-    * BASE - some tag
-    * DIGITS - files of that tag
-    * EXTENSION - everything after the last period (i.e. jpg, png)
+    dir   : base directory
+    base  : base file name
+    n     : file number matching 'base' (Can be None).
+    ext   : file extension after the period
         '''
-        (basename, digits, extension) = (None, None, None)
-        match_format = re.match(self.filename_format, filename)
-        match_any = re.match(self.anyfile_format, filename)
+        full_filename = os.path.abspath(filename)
+        f = { 'dir' : None, 'base' : None, 'n' : None, 'ext' : None }
+        if not os.path.isfile(full_filename):
+            self.log.debug('Not a file "{}"'.format(full_filename))
+            return f
+        f['dir'] = os.path.dirname(full_filename)
+        match_format = re.match(self.filename_format, os.path.basename(full_filename))
+        match_any = re.match(self.anyfile_format, os.path.basename(full_filename))
         if match_format:
-            (basename, digits, extension) = (match_format.group(1), match_format.group(2), match_format.group(3))
+            (f['base'], f['n'], f['ext']) = (match_format.group(1), match_format.group(2), match_format.group(3))
         elif match_any:
-            (basename, extension) = (match_any.group(1), match_any.group(2))
-        return  (basename, digits, extension)
-    def replace_files(self, files=None, replace_with=None, index=None, digits=0):
-        '''
-        '''
-        if index < 1: return index
-        rename = {}
-        for f in sorted(files, reverse=True):
-            file_path = os.path.dirname(f)
-            if len(file_path) > 0: file_path = file_path + '/'
-            file_base = os.path.basename(f)
-            (file_root, file_digits, file_extension) = self.get_file_parts(filename=file_base)
-            oldname = f
-            if replace_with:
-                replace = re.match(self.anyfile_format, file_base)
-                newname = file_path + replace_with + '-' + str(index).zfill(digits) + '.' + replace.group(2).lower()
-            else:
-                if file_root == self.nameformat:
-                    replace_digits = re.match(self.filename_format, file_base)
-                    newname = file_path + replace_digits.group(1) + '-' + str(index).zfill(digits) + '.' + replace_digits.group(3).lower()
+            (f['base'], f['ext']) = (match_any.group(1), match_any.group(2))
+        else:
+            self.log.debug('File "{}" matched neither format nor any file type.'.format(full_filename))
+        return  f
+
+
+
+    def get_file_lists(self, file_list=None, nameformat=None):
+        files = { 'matching' : [],
+                  'other' : [] }
+        for f in file_list:
+            parts = self.get_file_parts(filename=f)
+            fullname = None
+            if parts['dir'] == None or parts['base'] == None or parts['ext'] == None:
+                self.log.debug('Skipping file "{}".'.format(os.path.basename(f)))
+                continue
+            if parts['base'] == nameformat:
+                if parts['n'] != None:
+                    fullname = parts['dir'] + '/' + parts['base'] + '-' + parts['n'] + '.' + parts['ext']
                 else:
-                    keep = re.match(self.anyfile_format, file_base)
-                    newname = file_path + keep.group(1) + '-' + str(index).zfill(digits) + '.' + keep.group(2).lower()
-            self.files[newname] = oldname
-            index -= 1
-        return index
-    def update_files(self, files=None):
-        '''Remember that the dictionary is [newname] : oldname
-        '''
-        for f in sorted(files, reverse=True):
-            base_src = re.match(self.anyfile_format, self.files[f]).group(1)
-            base_dst = re.match(self.anyfile_format, f).group(1)
-            dest_exists = glob.glob(base_dst + '.*')
-            if base_src == base_dst:
-                sys.stderr.write('{}\n'.format(self.files[f]))
+                    fullname = parts['dir'] + '/' + parts['base'] + '.' + parts['ext']
+                files['matching'].append(fullname)
             else:
-                sys.stderr.write('{} -> {}\n'.format(self.files[f], f))
+                if parts['n'] != None:
+                    fullname = parts['dir'] + '/' + parts['base'] + '-' + parts['n'] + '.' + parts['ext']
+                else:
+                    fullname = parts['dir'] + '/' + parts['base'] + '.' + parts['ext']
+                files['other'].append(fullname)
+        return files
+
+
+
+    def check_if_dst_dir_in_src_files(self, destdir=None, srcfiles=None):
+        for f in srcfiles:
+            parts = self.get_file_parts(filename=f)
+            if parts['dir'] == destdir:
+                self.log.debug('Found destination directory in the list of source files "{}"'.format(parts['dir']))
+                self.ds_order.remove('dst')
+                return
+        return
+
+
+
+    def build_names(self):
+        self.totalfiles = int(len(self.files.keys()))
+        if self.debug:
+            self.log.debug('Detected {} total files.'.format(self.totalfiles))
+        self.digits = int(len(str(self.totalfiles)))
+        n = int(1)
+        for f in self.ordered_files:
+            parts = self.get_file_parts(f)
+            newname = os.path.abspath(self.dstdir) + '/' + self.nameformat + '-' + str(n).zfill(self.digits) + '.' + parts['ext'].lower()
+            self.files[f] = newname
+            n = n + 1
+        return
+
+
+
+    def update_files(self):
+        '''
+        '''
+        for f in self.ordered_files:
+            if f == self.files[f]:
+                if self.debug == True :
+                    sys.stderr.write('{}\n'.format(os.path.basename(self.files[f])))
+            else:
+                sys.stderr.write('{} -> {}\n'.format(os.path.basename(f), os.path.basename(self.files[f])))
                 if not self.noop:
-                    if base_src == base_dst:
-                        sys.stderr.write('WARNING: File already exists "{}". Cannot rename "{}" ->X "{}" \n'.format(dest_exists, f, item[f]))
+                    if f == self.files[f]:
+                        sys.stderr.write('WARNING: Source and target are the same. "{}" == "{}" \n'.format(f, self.files[f]))
                     else:
-                        os.rename(self.files[f], f)
+                        os.rename(f, self.files[f])
+
+
+
 def main():
     parser = argparse.ArgumentParser(description='Given a source and destination regular expression, merge the two files into one.  Assume the file has a format of REGEX-INT.EXT.')
     parser.add_argument('--debug', action='store_true', default=False, help='Enable debug mode.')
+    parser.add_argument('--loglevel', action='store', default='WARNING', help='Set a specific log level.')
     parser.add_argument('--noop', action='store_true', default=False, help='Do not take any action.  Only echo.')
     parser.add_argument('--prepend', action='store_true', default=False, help='Prepend files found to the beginning.')
     parser.add_argument('nameformat', type=str, nargs='?', action='store', default=None, help='File name without numeral or extension.')
-    parser.add_argument('src', type=str, nargs='*', action='store', default=None, help='Source files.')
+    parser.add_argument('dstdir', type=str, nargs='?', action='store', default=None, help='Destination directory.')
+    parser.add_argument('srcfiles', type=str, nargs='*', action='store', default=None, help='Source files.')
     args = parser.parse_args()
     if not args.nameformat:
         print 'You must specify a format for the files.'
         sys.exit(1)
-    if not args.src:
+    if not args.srcfiles:
         print 'You must specify a list of files with which to work.'
         sys.exit(1)
-    s = NumberPics(debug=args.debug, noop=args.noop, prepend=args.prepend, nameformat=args.nameformat)
-    s.build_list(format_desired=args.nameformat, filelist=args.src)
-    '''
-    Order of s.files[] is important!!!!!
+    if not args.dstdir:
+        raise AttributeError('Destination directory not defined.')
+        sys.exit(1)
+    if not os.path.exists(args.dstdir) or not os.path.isdir(args.dstdir):
+        raise IOError('Destination directory "{}" does not exist or is not a directory'.format(args.dstdir))
+        sys.exit(1)
 
-    Rename files from last to first.  This should prevent overwriting a pre-existing file.
-    However we can choose to prepend files files to the beginning of the list.  In that case begin
-    with the files already matching the name we want.
+    s = NumberPics(debug=args.debug, loglevel=args.loglevel, noop=args.noop, prepend=args.prepend, nameformat=args.nameformat, dstdir=args.dstdir, srcfiles=args.srcfiles)
+    s.srcfiles = s.remove_dupes(filelist=s.srcfiles)
+    '''First build the source and destination lists which we use.  Lists in order of preference
+          1. ['matching'] ['dst'] Files in destination directory matching pattern
+          2. ['matching'] ['src'] Files in source list matching pattern
+          3. ['other']    ['dst'] Other files in destination directory
+          4. ['other']    ['src'] Other source files
+    with a specific exclusion where #1 and #2 are skipped if the destination directory is
+    included in the source list.
     '''
+    dstdirfiles = []
+    for node in sorted(os.listdir(s.dstdir), reverse=False):
+        if node.startswith('.'):
+            next
+        dstdirfiles.append(os.path.abspath(s.dstdir) + '/' + node)
+    dstdirlists = s.get_file_lists(file_list=sorted(dstdirfiles), nameformat=s.nameformat)
+    s.file_lists['matching']['dst'] = dstdirlists['matching']
+    ''' Leave ['other']['dst'] null as the destination directory
+        might have differently labelled files than what we want to label -
+        i.e. if we are numbering files
+           ./testdir/IMG_1234.jpg       --> ./General/SF-Bob-1.jpg,
+
+        we do not want to accidentally number files
+
+           ./General/SF-General-1.jpg   --> ./General/SF-Bob-2.jpg
+    '''
+    s.file_lists['other']['dst'] = []
+
+    srcfilelists = s.get_file_lists(file_list=s.srcfiles, nameformat=s.nameformat)
+    s.file_lists['matching']['src'] = srcfilelists['matching']
+    s.file_lists['other']['src'] = srcfilelists['other']
+
+    s.check_if_dst_dir_in_src_files(destdir=s.dstdir, srcfiles=s.srcfiles)
     if args.prepend:
-        last_index = s.replace_files(files=s.filenames_already_matching, index=s.total_files, digits=s.num_digits)
+        for mo in reversed(s.match_order):
+            for so in s.ds_order:
+                for f in s.file_lists[mo][so]:
+                    s.ordered_files.append(f)
+                    s.files[f] = None
     else:
-        last_index = s.total_files
-    last_index = s.replace_files(files=s.filenames_to_change, replace_with=s.nameformat, index=last_index, digits=s.num_digits)
-    last_index = s.replace_files(files=s.filenames_already_matching, index=last_index, digits=s.num_digits)
-    s.update_files(files=s.files)
+        for mo in s.match_order:
+            for so in s.ds_order:
+                for f in s.file_lists[mo][so]:
+                    s.ordered_files.append(f)
+                    s.files[f] = None
+    s.build_names()
+    s.update_files()
+
 
 if __name__ == "__main__":
     main()
+
