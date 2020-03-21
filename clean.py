@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 #=============================================================================#
 # https://github.com/MartyCombs/bin/blob/master/clean.py
 #=============================================================================#
@@ -56,5 +56,5 @@ for f in files_to_fix:
         sys.stderr.write('"{}" -> "{}"\n'.format(oldname, newname))
         if not args.noop: os.rename(oldname, newname)
     if not args.noop and os.path.isfile(newname):
-        os.chmod(newname, 0644)
+        os.chmod(newname, 0o644)
 

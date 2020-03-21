@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 #=============================================================================#
 # https://github.com/MartyCombs/bin/blob/master/pic-number.py
 #=============================================================================#
@@ -181,10 +181,10 @@ def main():
     parser.add_argument('srcfiles', type=str, nargs='*', action='store', default=None, help='Source files.')
     args = parser.parse_args()
     if not args.nameformat:
-        print 'You must specify a format for the files.'
+        print('You must specify a format for the files.')
         sys.exit(1)
     if not args.srcfiles:
-        print 'You must specify a list of files with which to work.'
+        print('You must specify a list of files with which to work.')
         sys.exit(1)
     if not args.dstdir:
         raise AttributeError('Destination directory not defined.')

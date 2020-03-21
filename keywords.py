@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 #=============================================================================#
 # https://github.com/MartyCombs/bin/blob/master/keywords.py
 #=============================================================================#
@@ -50,7 +50,7 @@ Parameters
         cmd = ['exiftool', '-Keywords', filename]
         try:
             exiftool_output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            kwords = re.search(r'\: (.*)$', exiftool_output).group(1)
+            kwords = re.search(r'\: (.*)$', exiftool_output.decode('utf8')).group(1)
             keywords = [k.strip() for k in kwords.split(',')]
         except AttributeError:
             self.keywords[filename] = []
@@ -59,7 +59,7 @@ Parameters
         return { 'keywords' : keywords,
                  'error' : error }
     def print_keywords(self, filename):
-        print '{:<}'.format(self.keywords[filename])
+        print( '{:<}'.format(self.keywords[filename]))
     def clean_list(self, filename):
         self.keywords[filename] = list(set(self.keywords[filename]))
         self.keywords[filename].sort()
@@ -92,7 +92,7 @@ Parameters
             if not ans:
                 return resp
             if ans not in ['y', 'Y', 'n', 'N']:
-                print 'Please enter y or n.'
+                print('Please enter y or n.')
                 continue
             if ans == 'y' or ans == 'Y':
                 return True
@@ -138,11 +138,11 @@ def main():
         if kw.confirm_prompt(prompt='Write metadata?', resp=False) is False:
             sys.exit(0)
     if kw.noaction is True:
-        print '{fname:{chars}s}    {kwords:<}'.format(fname='Filename', chars=kw.maxlength, kwords='Keywords')
-        print '{fname:{chars}s}    {kwords:<}'.format(fname='--------', chars=kw.maxlength, kwords='--------')
+        print('{fname:{chars}s}    {kwords:<}'.format(fname='Filename', chars=kw.maxlength, kwords='Keywords'))
+        print('{fname:{chars}s}    {kwords:<}'.format(fname='--------', chars=kw.maxlength, kwords='--------'))
     for f in kw.files:
         if kw.noaction is True:
-            print '{fname:{chars}s}    {kwords:<}'.format(fname=f, chars=kw.maxlength, kwords=kw.keywords[f])
+            print('{fname:{chars}s}    {kwords:<}').format(fname=f, chars=kw.maxlength, kwords=kw.keywords[f])
         else:
             if kw.keywords[f] != kw.keywords_before[f]:
                 kw.write_keywords(filename=f)
