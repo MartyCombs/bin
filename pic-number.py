@@ -8,8 +8,9 @@ Given a regular expression, adjust file names to match the regular expression.
 '''
 import argparse, sys, os, glob, re, tempfile, logging
 
+#=============================================================================#
 class NumberPics:
-    def __init__(self, debug=False, loglevel=None, noop=False, prepend=False, nameformat=None, dstdir=None, srcfiles=None):
+    def __init__(self, debug=False, loglevel=None, noop=False, prepend=False, reverseorder=False, nameformat=None, dstdir=None, srcfiles=None):
         '''Want files of format:
     BASE-DIGITS.EXTENSION
 where BASE-DIGITS are unique regardless of EXTENSION (i.e. 'name-1.jpg'
@@ -19,6 +20,7 @@ cannot equal 'name-1.png').
         self.loglevel = loglevel.upper()
         self.noop = noop
         self.prepend = prepend
+        self.reverseorder = reverseorder
         self.nameformat = nameformat          # BASE
         self.dstdir = os.path.abspath(dstdir) # Destination directory.
         self.srcfiles = []                    # List of source files.
@@ -39,8 +41,7 @@ cannot equal 'name-1.png').
                                            'src' : [] } }
         self.init_logging(loglevel=self.loglevel)
 
-
-
+    #=============================================================================#
     def init_logging(self, loglevel=None):
         '''Assumes self.loglevel = 'critical|error|warning|info|debug'
         '''
@@ -61,8 +62,7 @@ cannot equal 'name-1.png').
         log.addHandler(sh)
         self.log = log
 
-
-
+    #=============================================================================#
     def remove_dupes(self, filelist=None):
         endlist = []
         filecheck = {}
@@ -75,8 +75,7 @@ cannot equal 'name-1.png').
                 endlist.append(fullname)
         return endlist
 
-
-
+    #=============================================================================#
     def get_file_parts(self, filename):
         '''Break a file into the three parts we want:
     dir   : base directory
@@ -100,8 +99,7 @@ cannot equal 'name-1.png').
             self.log.debug('File "{}" matched neither format nor any file type.'.format(full_filename))
         return  f
 
-
-
+    #=============================================================================#
     def get_file_lists(self, file_list=None, nameformat=None):
         files = { 'matching' : [],
                   'other' : [] }
@@ -125,8 +123,7 @@ cannot equal 'name-1.png').
                 files['other'].append(fullname)
         return files
 
-
-
+    #=============================================================================#
     def check_if_dst_dir_in_src_files(self, destdir=None, srcfiles=None):
         for f in srcfiles:
             parts = self.get_file_parts(filename=f)
@@ -136,8 +133,7 @@ cannot equal 'name-1.png').
                 return
         return
 
-
-
+    #=============================================================================#
     def build_names(self):
         self.totalfiles = int(len(self.files.keys()))
         if self.debug:
@@ -151,15 +147,19 @@ cannot equal 'name-1.png').
             n = n + 1
         return
 
-
-
+    #=============================================================================#
     def update_files(self):
         '''
         '''
-        for f in self.ordered_files:
-            if f == self.files[f]:
+        if self.reverseorder:
+            files = sorted(self.ordered_files, reverse=True)
+        else:
+            files = sorted(self.ordered_files, reverse=False)
+        for f in files:
+            if os.path.exists(self.files[f]):
                 if self.debug == True :
                     sys.stderr.write('{}\n'.format(os.path.basename(self.files[f])))
+                next
             else:
                 sys.stderr.write('{} -> {}\n'.format(os.path.basename(f), os.path.basename(self.files[f])))
                 if not self.noop:
@@ -170,12 +170,14 @@ cannot equal 'name-1.png').
 
 
 
+#=============================================================================#
 def main():
     parser = argparse.ArgumentParser(description='Given a source and destination regular expression, merge the two files into one.  Assume the file has a format of REGEX-INT.EXT.')
     parser.add_argument('--debug', action='store_true', default=False, help='Enable debug mode.')
     parser.add_argument('--loglevel', action='store', default='WARNING', help='Set a specific log level.')
     parser.add_argument('--noop', action='store_true', default=False, help='Do not take any action.  Only echo.')
     parser.add_argument('--prepend', action='store_true', default=False, help='Prepend files found to the beginning.')
+    parser.add_argument('--reverse', action='store_true', default=False, help='Rename files in reverse order.')
     parser.add_argument('nameformat', type=str, nargs='?', action='store', default=None, help='File name without numeral or extension.')
     parser.add_argument('dstdir', type=str, nargs='?', action='store', default=None, help='Destination directory.')
     parser.add_argument('srcfiles', type=str, nargs='*', action='store', default=None, help='Source files.')
@@ -193,7 +195,7 @@ def main():
         raise IOError('Destination directory "{}" does not exist or is not a directory'.format(args.dstdir))
         sys.exit(1)
 
-    s = NumberPics(debug=args.debug, loglevel=args.loglevel, noop=args.noop, prepend=args.prepend, nameformat=args.nameformat, dstdir=args.dstdir, srcfiles=args.srcfiles)
+    s = NumberPics(debug=args.debug, loglevel=args.loglevel, noop=args.noop, prepend=args.prepend, reverseorder=args.reverse, nameformat=args.nameformat, dstdir=args.dstdir, srcfiles=args.srcfiles)
     s.srcfiles = s.remove_dupes(filelist=s.srcfiles)
     '''First build the source and destination lists which we use.  Lists in order of preference
           1. ['matching'] ['dst'] Files in destination directory matching pattern
