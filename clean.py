@@ -44,6 +44,7 @@ for f in files_to_fix:
     n = re.sub(r'_-', '-', n)
     n = re.sub(r'-_', '-', n)
     n = re.sub(r'_{2,}', '_', n)
+    n = re.sub(r'_([^A-Za-z0-9])', r'\1', n)
     new_names[f] = n
 
 for f in files_to_fix:
