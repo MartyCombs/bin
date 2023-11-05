@@ -58,8 +58,6 @@ Parameters
             error = e.output
         return { 'keywords' : keywords,
                  'error' : error }
-    def print_keywords(self, filename):
-        print( '{:<}'.format(self.keywords[filename]))
     def clean_list(self, filename):
         self.keywords[filename] = list(set(self.keywords[filename]))
         self.keywords[filename].sort()
@@ -142,7 +140,7 @@ def main():
         print('{fname:{chars}s}    {kwords:<}'.format(fname='--------', chars=kw.maxlength, kwords='--------'))
     for f in kw.files:
         if kw.noaction is True:
-            print('{fname:{chars}s}    {kwords:<}').format(fname=f, chars=kw.maxlength, kwords=kw.keywords[f])
+            print('{fname:{chars}s}    {kwords:<}'.format(fname=f, chars=kw.maxlength, kwords=str(kw.keywords[f])))
         else:
             if kw.keywords[f] != kw.keywords_before[f]:
                 kw.write_keywords(filename=f)
