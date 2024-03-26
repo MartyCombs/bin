@@ -26,6 +26,9 @@ class NumberPics:
         self.prepend = prepend
         self.nameformat = nameformat
         self.srcfiles = srcfiles
+        self.srcfiles_lower = []
+        for f in srcfiles:
+            self.srcfiles_lower.append(f.lower())
         self.intermediates = {}
         self.new_names = {}
     def parts(self, filename):
@@ -50,7 +53,7 @@ class NumberPics:
             new_name = str(self.nameformat) + '-' + str(n).zfill(digits) + '.' + p['ext'].lower()
             if f == new_name:
                 self.new_names[f] = new_name
-            elif new_name in self.srcfiles:
+            elif new_name.lower() in self.srcfiles_lower:
                 intermediate = 'int-' + new_name
                 self.intermediates[intermediate] = new_name
                 self.new_names[f] = intermediate
@@ -61,6 +64,8 @@ class NumberPics:
             if f == self.new_names[f]:
                 if self.debug:
                     print('{} REMAINS'.format(f))
+            elif os.path.isfile(self.new_names[f]):
+                raise Exception('File {} already exists'.format(self.new_names[f]))
             else:
                 print('{} -> {}'.format(f, self.new_names[f]))
                 if self.noop == False:

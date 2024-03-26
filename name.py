@@ -94,6 +94,8 @@ class FileNames(object):
         return
     def rename_files(self, noop=False):
         for f in self.names_orig.keys():
+            if os.path.isfile(self.names_new[f]['full']):
+                raise Exception('File exists! {}'.format(self.names_new[f]['full']))
             print('{} --> {}'.format(f, self.names_new[f]['full']))
             if noop is False: os.rename(f, self.names_new[f]['full'])
 
